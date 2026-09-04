@@ -28,27 +28,111 @@ const INTERVALS = {
 }
 
 const SHAPES = {
-  maj: { E: [0, 2, 2, 1, 0, 0], A: [-1, 0, 2, 2, 2, 0] },
-  m: { E: [0, 2, 2, 0, 0, 0], A: [-1, 0, 2, 2, 1, 0] },
-  '7': { E: [0, 2, 0, 1, 0, 0], A: [-1, 0, 2, 0, 2, 0] },
-  m7: { E: [0, 2, 0, 0, 0, 0], A: [-1, 0, 2, 0, 1, 0] },
-  maj7: { E: [0, 2, 1, 1, 0, 0], A: [-1, 0, 2, 1, 2, 0] },
-  sus4: { E: [0, 2, 2, 2, 0, 0], A: [-1, 0, 2, 2, 3, 0] },
-  sus2: { A: [-1, 0, 2, 4, 2, 0] },
-  '6': { E: [0, 2, 2, 1, 2, 0], A: [-1, 0, 2, 2, 2, 2] },
-  m6: { E: [0, 2, 2, 0, 2, 0], A: [-1, 0, 2, 3, 2, 2] },
-  '5': { E: [0, 2, 2, -1, -1, -1], A: [-1, 0, 2, 2, -1, -1] },
-  '9': { E: [0, 2, 0, 1, 0, 2], A: [-1, 0, 2, 0, 2, 2] },
-  m9: { E: [0, 2, 0, 0, 0, 2], A: [-1, 0, 2, 0, 1, 2] },
-  maj9: { E: [0, 2, 1, 1, 2, 0], A: [-1, 0, 2, 1, 2, 2] },
-  add9: { E: [0, 2, 2, 1, 0, 2], A: [-1, 0, 2, 4, 2, 0] },
-  '7sus4': { E: [0, 2, 0, 2, 0, 0], A: [-1, 0, 2, 0, 3, 0] },
-  dim: { E: [0, 1, 2, 1, -1, -1], A: [-1, 0, 1, 2, 1, -1] },
-  dim7: { E: [0, 1, 2, 1, 2, -1], A: [-1, 0, 1, 2, 1, 2] },
-  m7b5: { E: [0, 1, 0, 1, 0, -1], A: [-1, 0, 1, 2, 1, 0] },
-  aug: { E: [0, 3, 2, 1, 1, 0], A: [-1, 0, 3, 2, 2, 1] },
-  '11': { E: [0, 2, 0, 2, 0, 0], A: [-1, 0, 2, 0, 3, 0] },
-  '13': { E: [0, 2, 0, 1, 2, 0], A: [-1, 0, 2, 0, 2, 2] }
+  maj: {
+    E: [0, 2, 2, 1, 0, 0],
+    A: [-1, 0, 2, 2, 2, 0],
+    C: [-1, 3, 2, 0, 1, 0],
+    D: [-1, -1, 0, 2, 3, 2]
+  },
+  m: {
+    E: [0, 2, 2, 0, 0, 0],
+    A: [-1, 0, 2, 2, 1, 0],
+    D: [-1, -1, 0, 2, 3, 1]
+  },
+  '7': {
+    E: [0, 2, 0, 1, 0, 0],
+    A: [-1, 0, 2, 0, 2, 0],
+    C: [-1, 3, 2, 3, 1, 0],
+    D: [-1, -1, 0, 2, 1, 2]
+  },
+  m7: {
+    E: [0, 2, 0, 0, 0, 0],
+    A: [-1, 0, 2, 0, 1, 0],
+    D: [-1, -1, 0, 2, 1, 1]
+  },
+  maj7: {
+    E: [0, 2, 1, 1, 0, 0],
+    A: [-1, 0, 2, 1, 2, 0],
+    C: [-1, 3, 2, 0, 0, 0],
+    D: [-1, -1, 0, 2, 2, 2]
+  },
+  sus4: {
+    E: [0, 2, 2, 2, 0, 0],
+    A: [-1, 0, 2, 2, 3, 0],
+    D: [-1, -1, 0, 2, 3, 3]
+  },
+  sus2: {
+    A: [-1, 0, 2, 4, 2, 0],
+    D: [-1, -1, 0, 2, 3, 0],
+    C: [-1, 3, 0, 0, 1, 3]
+  },
+  '6': {
+    E: [0, 2, 2, 1, 2, 0],
+    A: [-1, 0, 2, 2, 2, 2],
+    C: [-1, 3, 2, 2, 1, 0],
+    D: [-1, -1, 0, 2, 0, 2]
+  },
+  m6: {
+    E: [0, 2, 2, 0, 2, 0],
+    A: [-1, 0, 2, 2, 1, 2],
+    D: [-1, -1, 0, 2, 0, 1]
+  },
+  '5': {
+    E: [0, 2, 2, -1, -1, -1],
+    A: [-1, 0, 2, 2, -1, -1],
+    D: [-1, -1, 0, 2, 3, -1]
+  },
+  '9': {
+    E: [0, 2, 0, 1, 0, 2],
+    A: [-1, 0, 2, 0, 2, 2],
+    C: [-1, 3, 2, 3, 3, 0],
+    D: [-1, -1, 0, 2, 1, 0]
+  },
+  m9: {
+    E: [0, 2, 0, 0, 0, 2],
+    A: [-1, 0, 2, 0, 1, 2]
+  },
+  maj9: {
+    E: [0, 2, 1, 1, 2, 0],
+    A: [-1, 0, 2, 1, 2, 2],
+    C: [-1, 3, 2, 4, 3, 0]
+  },
+  add9: {
+    E: [0, 2, 2, 1, 0, 2],
+    A: [-1, 0, 2, 4, 2, 0],
+    C: [-1, 3, 2, 0, 3, 0],
+    D: [-1, -1, 0, 2, 3, 0]
+  },
+  '7sus4': {
+    E: [0, 2, 0, 2, 0, 0],
+    A: [-1, 0, 2, 0, 3, 0],
+    D: [-1, -1, 0, 2, 1, 3]
+  },
+  dim: {
+    E: [0, 1, 2, 1, -1, -1],
+    A: [-1, 0, 1, 2, 1, -1]
+  },
+  dim7: {
+    E: [0, 1, 2, 1, 2, -1],
+    A: [-1, 0, 1, 2, 1, 2]
+  },
+  m7b5: {
+    E: [0, 1, 0, 1, 0, -1],
+    A: [-1, 0, 1, 2, 1, 0]
+  },
+  aug: {
+    E: [0, 3, 2, 1, 1, 0],
+    A: [-1, 0, 3, 2, 2, 1]
+  },
+  '11': {
+    E: [0, 2, 0, 2, 0, 0],
+    A: [-1, 0, 2, 0, 3, 0]
+  },
+  '13': {
+    E: [0, 2, 0, 1, 2, 0],
+    A: [-1, 0, 2, 0, 2, 2],
+    D: [-1, -1, 0, 2, 1, 2]
+  }
 }
 
 const SHAPE_ALIAS = {
@@ -65,6 +149,9 @@ const SHAPE_ALIAS = {
   m7b5: 'm7',
   aug: 'maj'
 }
+
+const ROOT_OPEN = { E: 4, A: 9, C: 0, D: 2 }
+const FORM_ORDER = ['C', 'D', 'E', 'A']
 
 export function classifyFamily(quality) {
   const q = String(quality || '').replace(/[()[\]]/g, '').replace(/\s/g, '')
@@ -121,28 +208,82 @@ export function tuningFrom(label) {
   return OPEN_SEMIS[label] || OPEN_SEMIS['E A D G B E']
 }
 
-export function guitarVoicing(chordName) {
-  const c = parseChord(chordName)
-  if (!c) return null
-  const family = classifyFamily(c.quality)
-  const patterns = SHAPES[family] || SHAPES[SHAPE_ALIAS[family]] || SHAPES.maj
+function patternsFor(family) {
+  return SHAPES[family] || SHAPES[SHAPE_ALIAS[family]] || SHAPES.maj
+}
 
-  const rootOpen = { E: 4, A: 9 }
-  const candidates = []
-  for (const key of ['E', 'A']) {
-    const pattern = patterns[key]
+function candidateFrom(pattern, form, r) {
+  if (!pattern) return null
+  const abs = pattern.map((o) => (o === -1 ? -1 : r + o))
+  if (abs.some((f) => f !== -1 && (f < 0 || f > 17))) return null
+  const positives = abs.filter((f) => f >= 0)
+  if (!positives.length) return null
+  const minF = Math.min(...positives)
+  const maxF = Math.max(...positives)
+  const span = maxF - (minF === 0 ? 1 : minF)
+  if (span > 5) return null
+  const sum = positives.reduce((a, f) => a + f, 0)
+  const openBonus = positives.some((f) => f === 0) ? -18 : 0
+  const highPenalty = minF >= 8 ? 10 : 0
+  const formBias = form === 'C' || form === 'D' ? -4 : 0
+  return {
+    frets: abs,
+    r,
+    form,
+    sum,
+    score: sum + openBonus + highPenalty + formBias + span
+  }
+}
+
+export function guitarVoicings(chordName) {
+  const c = parseChord(chordName)
+  if (!c) return []
+  const family = classifyFamily(c.quality)
+  const patterns = patternsFor(family)
+  const seen = new Set()
+  const out = []
+
+  for (const form of FORM_ORDER) {
+    const pattern = patterns[form]
     if (!pattern) continue
-    const lowIsMuted = pattern[0] === -1
-    if (key === 'E' && lowIsMuted) continue
-    if (key === 'A' && !lowIsMuted) continue
-    const r = (((c.semitone - rootOpen[key]) % 12) + 12) % 12
-    const abs = pattern.map((o) => (o === -1 ? -1 : r + o))
-    if (abs.every((f) => f === -1 || f <= 15)) {
-      const sum = abs.reduce((a, f) => a + (f === -1 ? 0 : f), 0)
-      candidates.push({ frets: abs, r, form: key, sum })
+    const r = (((c.semitone - ROOT_OPEN[form]) % 12) + 12) % 12
+    for (const offset of [0, 12]) {
+      const cand = candidateFrom(pattern, form, r + offset)
+      if (!cand) continue
+      const key = cand.frets.join(',')
+      if (seen.has(key)) continue
+      seen.add(key)
+      out.push(cand)
     }
   }
-  if (!candidates.length) return null
-  candidates.sort((a, b) => a.sum - b.sum || a.r - b.r)
-  return candidates[0]
+
+  out.sort((a, b) => a.score - b.score || a.r - b.r)
+  return out.slice(0, 4)
+}
+
+export function guitarVoicing(chordName) {
+  return guitarVoicings(chordName)[0] || null
+}
+
+export const DICTIONARY_ROOTS = ['C', 'C#', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B']
+
+export const DICTIONARY_QUALITIES = [
+  { id: '', label: 'Maior' },
+  { id: 'm', label: 'Menor' },
+  { id: '7', label: '7' },
+  { id: 'm7', label: 'm7' },
+  { id: 'maj7', label: 'maj7' },
+  { id: 'sus4', label: 'sus4' },
+  { id: 'sus2', label: 'sus2' },
+  { id: '6', label: '6' },
+  { id: 'm6', label: 'm6' },
+  { id: '9', label: '9' },
+  { id: 'add9', label: 'add9' },
+  { id: '5', label: '5' },
+  { id: 'dim', label: 'dim' },
+  { id: 'aug', label: '+' }
+]
+
+export function dictionaryChord(root, quality) {
+  return `${root}${quality || ''}`
 }

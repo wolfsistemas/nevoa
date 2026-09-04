@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { Icon } from '../components/Icons'
 import ChordDiagram from '../components/ChordDiagram'
@@ -7,6 +7,10 @@ import { useAuth } from '../hooks/useAuth'
 import { callFetchSong } from '../lib/supabase'
 import { hasTabs } from '../lib/cifraSanitize'
 import { MAJOR_KEYS, MINOR_KEYS, shiftToKey, transposeChord } from '../lib/transpose'
+import { attachWakeLock } from '../lib/wakeLock'
+import { createMetronome, tapTempo } from '../lib/metronome'
+import { readCachedSong } from '../lib/songCache'
+import { loadListTone } from '../lib/listTone'
 import {
   getSongById,
   getSongBySlug,
@@ -17,7 +21,8 @@ import {
   createList,
   addSongToList,
   getListWithSongs,
-  recordRecentSong
+  recordRecentSong,
+  updateListSongTone
 } from '../lib/store'
 
 const SETTINGS_KEY = 'nevoa_settings'
@@ -94,7 +99,8 @@ function loadSettings() {
     scale: DEFAULT_SCALE,
     instrument: 'violao',
     hideTabs: true,
-    fontScaleV2: true
+    fontScaleV2: true,
+    bpm: 90
   }
   try {
     const saved = JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}')
@@ -136,8 +142,19 @@ export function SongView({ songId, listId, playlistIds, onBack, onReplaceSong, e
   const [toast, setToast] = useState('')
   const [copied, setCopied] = useState(false)
   const [neighbors, setNeighbors] = useState({ prev: null, next: null })
+  const [listTone, setListTone] = useState(() => (listId ? loadListTone(listId, songId) : null))
+  const [metroOn, setMetroOn] = useState(false)
+  const [bpm, setBpm] = useState(() => {
+    const n = Number(loadSettings().bpm)
+    return Number.isFinite(n) ? Math.max(40, Math.min(240, Math.round(n))) : 90
+  })
+  const [pulse, setPulse] = useState(false)
+  const metroRef = useRef(null)
+  const tapsRef = useRef([])
 
-  const { shift, capo, auto, speed, scale, instrument, hideTabs } = settings
+  const { auto, speed, scale, instrument, hideTabs } = settings
+  const shift = listId ? (listTone?.shift ?? 0) : settings.shift
+  const capo = listId ? (listTone?.capo ?? 0) : settings.capo
   const speedIdx = Math.max(0, Math.min(SPEEDS.length - 1, Number(speed) || 0))
   const scaleIdx = clampScale(scale)
   const eff = shift - capo
@@ -154,6 +171,24 @@ export function SongView({ songId, listId, playlistIds, onBack, onReplaceSong, e
     })
   }
 
+  const persistTone = (patch) => {
+    if (listId && songId) {
+      setListTone((prev) => {
+        const next = { shift: 0, capo: 0, ...(prev || {}), ...patch }
+        updateListSongTone(listId, songId, next).catch(() => {})
+        return next
+      })
+      return
+    }
+    persist(patch)
+  }
+
+  const persistBpm = (value) => {
+    const n = Math.max(40, Math.min(240, Math.round(Number(value) || 90)))
+    setBpm(n)
+    persist({ bpm: n })
+  }
+
   useEffect(() => {
     ;(async () => {
       setStatus('loading')
@@ -168,6 +203,14 @@ export function SongView({ songId, listId, playlistIds, onBack, onReplaceSong, e
         if (user) isFavorite(s.id).then(setFav)
         setStatus('ok')
       } catch (e) {
+        const cached = readCachedSong(songId)
+        if (cached) {
+          setSong(cached)
+          recordRecentSong(cached, user?.id)
+          if (user) isFavorite(cached.id).then(setFav)
+          setStatus('ok')
+          return
+        }
         setMessage(e?.message || 'Não foi possível carregar esta cifra.')
         setStatus('error')
       }
@@ -207,10 +250,47 @@ export function SongView({ songId, listId, playlistIds, onBack, onReplaceSong, e
   }, [listId, songId, playlistIds])
 
   useEffect(() => {
+    if (!listId || !songId) {
+      setListTone(null)
+      return
+    }
+    setListTone(loadListTone(listId, songId))
+    getListWithSongs(listId)
+      .then((list) => {
+        const item = (list?.items || []).find((it) => it.song?.id === songId)
+        if (!item) return
+        setListTone({
+          shift: item.shift != null ? Number(item.shift) || 0 : 0,
+          capo: item.capo != null ? Number(item.capo) || 0 : 0
+        })
+      })
+      .catch(() => {})
+  }, [listId, songId])
+
+  useEffect(() => {
     if (!embedded) return
     document.body.classList.add('song-modal-open')
     return () => document.body.classList.remove('song-modal-open')
   }, [embedded])
+
+  useEffect(() => attachWakeLock(), [])
+
+  useEffect(() => {
+    const m = createMetronome()
+    metroRef.current = m
+    m.setOnBeat(() => {
+      setPulse(true)
+      setTimeout(() => setPulse(false), 90)
+    })
+    return () => {
+      m.stop()
+      metroRef.current = null
+    }
+  }, [])
+
+  useEffect(() => {
+    metroRef.current?.setBpm(bpm)
+  }, [bpm])
 
   useEffect(() => {
     if (!auto) return
@@ -326,8 +406,33 @@ export function SongView({ songId, listId, playlistIds, onBack, onReplaceSong, e
 
   const pickKey = (keyName) => {
     if (!song?.tone_root) return
-    persist({ shift: shiftToKey(song.tone_root, keyName, capo) })
+    persistTone({ shift: shiftToKey(song.tone_root, keyName, capo) })
     setToneOpen(false)
+  }
+
+  const toggleMetro = () => {
+    const m = metroRef.current
+    if (!m) return
+    if (metroOn) {
+      m.stop()
+      setMetroOn(false)
+    } else {
+      m.setBpm(bpm)
+      m.start()
+      setMetroOn(true)
+    }
+  }
+
+  const onTapTempo = () => {
+    const { taps, bpm: next } = tapTempo(tapsRef.current)
+    tapsRef.current = taps
+    if (next) persistBpm(next)
+    const m = metroRef.current
+    m?.setBpm(next || bpm)
+    if (!metroOn) {
+      m?.start()
+      setMetroOn(true)
+    }
   }
 
   const shareText = () => {
@@ -547,24 +652,24 @@ export function SongView({ songId, listId, playlistIds, onBack, onReplaceSong, e
             <button type="button" className="ctl-label ctl-link" onClick={() => song.tone_root && setToneOpen(true)}>
               Tom
             </button>
-            <button className="icon-btn sm" onClick={() => persist({ shift: Math.max(-11, shift - 1) })}>
+            <button className="icon-btn sm" onClick={() => persistTone({ shift: Math.max(-11, shift - 1) })}>
               <Icon name="a-down" size={16} />
             </button>
             <button type="button" className="ctl-value ctl-link" onClick={() => song.tone_root && setToneOpen(true)}>
               {eff > 0 ? `+${eff}` : eff}
             </button>
-            <button className="icon-btn sm" onClick={() => persist({ shift: Math.min(11, shift + 1) })}>
+            <button className="icon-btn sm" onClick={() => persistTone({ shift: Math.min(11, shift + 1) })}>
               <Icon name="a-up" size={16} />
             </button>
           </div>
 
           <div className="ctl">
             <span className="ctl-label">Capo</span>
-            <button className="icon-btn sm" onClick={() => persist({ capo: Math.max(0, capo - 1) })}>
+            <button className="icon-btn sm" onClick={() => persistTone({ capo: Math.max(0, capo - 1) })}>
               <Icon name="a-down" size={16} />
             </button>
             <span className="ctl-value">{capo}</span>
-            <button className="icon-btn sm" onClick={() => persist({ capo: Math.min(9, capo + 1) })}>
+            <button className="icon-btn sm" onClick={() => persistTone({ capo: Math.min(9, capo + 1) })}>
               <Icon name="a-up" size={16} />
             </button>
           </div>
@@ -581,7 +686,7 @@ export function SongView({ songId, listId, playlistIds, onBack, onReplaceSong, e
           </div>
 
           {(shift !== 0 || capo !== 0) && (
-            <button className="btn ghost sm-btn" onClick={() => persist({ shift: 0, capo: 0 })}>
+            <button className="btn ghost sm-btn" onClick={() => persistTone({ shift: 0, capo: 0 })}>
               Resetar
             </button>
           )}
@@ -620,6 +725,29 @@ export function SongView({ songId, listId, playlistIds, onBack, onReplaceSong, e
           )}
           <button className="icon-btn sm" onClick={togglePresent} aria-label="Tela cheia">
             <Icon name="fullscreen" size={16} />
+          </button>
+        </div>
+
+        <div className="toolbar-row wrap">
+          <button
+            className={`icon-btn sm ${metroOn ? 'metro-on' : ''} ${pulse ? 'pulse' : ''}`}
+            onClick={toggleMetro}
+            aria-label="Metrônomo"
+          >
+            <Icon name="metronome" size={16} />
+          </button>
+          <span className="ctl-label">BPM</span>
+          <div className="ctl grow">
+            <button className="icon-btn sm" onClick={() => persistBpm(bpm - 2)} aria-label="BPM menor">
+              <Icon name="a-down" size={16} />
+            </button>
+            <span className="ctl-value">{bpm}</span>
+            <button className="icon-btn sm" onClick={() => persistBpm(bpm + 2)} aria-label="BPM maior">
+              <Icon name="a-up" size={16} />
+            </button>
+          </div>
+          <button className="btn ghost sm-btn" onClick={onTapTempo}>
+            Tap
           </button>
         </div>
       </div>
@@ -766,5 +894,5 @@ export default function Song() {
   const { songId } = useParams()
   const [params] = useSearchParams()
   const listId = params.get('list')
-  return <SongView songId={songId} listId={listId} />
+  return <SongView key={`${listId || ''}-${songId}`} songId={songId} listId={listId} />
 }

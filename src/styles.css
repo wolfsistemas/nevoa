@@ -237,7 +237,23 @@ a:hover { text-decoration: underline; }
 }
 .icon-btn.sm { width: 30px; height: 30px; border-radius: 9px; }
 .icon-btn.on, .fav-on { color: var(--danger); border-color: rgba(255, 92, 108, 0.4); }
+.icon-btn.metro-on { color: var(--lime); border-color: rgba(157, 255, 87, 0.45); }
+.icon-btn.pulse { box-shadow: 0 0 0 3px rgba(157, 255, 87, 0.28); }
 .icon-btn svg { display: block; }
+.voicing-nav { display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 8px; }
+.quality-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+.dict-card {
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 16px 12px 20px;
+  display: flex;
+  justify-content: center;
+}
 
 /* ---------- section + cards ---------- */
 .section-title { font-size: 15px; color: var(--muted); margin: 6px 0 0; }
@@ -575,8 +591,8 @@ body.song-modal-open .toast { bottom: calc(18px + var(--safe)); }
 
 .sheet.chord-card {
   position: relative;
-  width: min(220px, 56vw);
-  max-width: 220px;
+  width: min(240px, 62vw);
+  max-width: 240px;
   padding: 14px 12px calc(14px + var(--safe));
   border-radius: 16px;
   margin-bottom: 12px;
@@ -669,7 +685,7 @@ body.song-modal-open .toast { bottom: calc(18px + var(--safe)); }
   @page { margin: 12mm; }
   html, body { background: #fff !important; }
   body, .app, .song-page { color: #111 !important; }
-  .app-nav, .song-head, .toolbar, .song-footer, .sheet-backdrop, .toast, .bottom-nav { display: none !important; }
+  .app-nav, .song-head, .toolbar, .song-footer, .sheet-backdrop, .toast, .bottom-nav, .voicing-nav { display: none !important; }
   .print-only { display: block !important; padding-bottom: 10px; border-bottom: 1px solid #bbb; margin-bottom: 12px; }
   .print-head-title { margin: 0; font-size: 17px; font-weight: 800; }
   .print-head-meta { margin: 4px 0 0; font-size: 12px; color: #333; }

@@ -1,6 +1,8 @@
 import { supabase } from './supabase'
 import { slugVariants } from './slug'
 import { sanitizeCifraLines } from './cifraSanitize'
+import { readCachedSong, writeCachedSong } from './songCache'
+import { loadListToneMap, saveListTone } from './listTone'
 
 export async function getProfile() {
   const { data: { user } } = await supabase.auth.getUser()
@@ -65,9 +67,20 @@ export async function searchSongsLocal(q, limit = 30) {
 
 export async function getSongById(id) {
   if (!id) return null
-  const { data, error } = await supabase.from('songs').select('*').eq('id', id).maybeSingle()
-  if (error) throw error
-  return data
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+    const cached = readCachedSong(id)
+    if (cached) return cached
+  }
+  try {
+    const { data, error } = await supabase.from('songs').select('*').eq('id', id).maybeSingle()
+    if (error) throw error
+    if (data) writeCachedSong(data)
+    return data
+  } catch (e) {
+    const cached = readCachedSong(id)
+    if (cached) return cached
+    throw e
+  }
 }
 
 export async function getSongBySlug(slugArtist, slugTitle, version = 'original') {
@@ -86,7 +99,10 @@ export async function getSongBySlug(slugArtist, slugTitle, version = 'original')
         .limit(1)
         .maybeSingle()
       if (error) lastError = error
-      if (data) return data
+      if (data) {
+        writeCachedSong(data)
+        return data
+      }
     }
   }
   if (lastError) throw lastError
@@ -173,15 +189,52 @@ export async function getListWithSongs(id) {
     .maybeSingle()
   if (e1) throw e1
   if (!list) return null
-  const { data: items, error: e2 } = await supabase
+  const withTone = await supabase
     .from('list_songs')
     .select(
-      'id, position, songs(id, artist, title, slug_artist, slug_title, youtube_url, image_url, tone_root)'
+      'id, position, shift, capo, songs(id, artist, title, slug_artist, slug_title, youtube_url, image_url, tone_root)'
     )
     .eq('list_id', id)
     .order('position', { ascending: true })
+  let items = withTone.data
+  let e2 = withTone.error
+  if (e2 && /column|schema cache|does not exist|PGRST204/i.test(`${e2.message || ''} ${e2.code || ''}`)) {
+    const retry = await supabase
+      .from('list_songs')
+      .select(
+        'id, position, songs(id, artist, title, slug_artist, slug_title, youtube_url, image_url, tone_root)'
+      )
+      .eq('list_id', id)
+      .order('position', { ascending: true })
+    items = retry.data
+    e2 = retry.error
+  }
   if (e2) throw e2
-  return { ...list, items: (items || []).map((it) => ({ ...it, song: it.songs })) }
+  const tones = loadListToneMap(id)
+  return {
+    ...list,
+    items: (items || []).map((it) => {
+      const song = it.songs
+      const local = song?.id ? tones[song.id] : null
+      const shift = it.shift != null ? Number(it.shift) || 0 : Number(local?.shift) || 0
+      const capo = it.capo != null ? Number(it.capo) || 0 : Number(local?.capo) || 0
+      return { ...it, song, shift, capo }
+    })
+  }
+}
+
+export async function updateListSongTone(listId, songId, tone) {
+  const shift = Number(tone?.shift) || 0
+  const capo = Number(tone?.capo) || 0
+  saveListTone(listId, songId, { shift, capo })
+  const { error } = await supabase
+    .from('list_songs')
+    .update({ shift, capo })
+    .eq('list_id', listId)
+    .eq('song_id', songId)
+  if (error && error.code !== 'PGRST204' && !/column|schema cache/i.test(error.message || '')) {
+    throw error
+  }
 }
 
 export async function addSongToList(listId, songId) {

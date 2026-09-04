@@ -1,5 +1,7 @@
-import { guitarVoicing, chordNotes, spellNote } from '../lib/chords'
+import { useEffect, useMemo, useState } from 'react'
+import { guitarVoicings, chordNotes, spellNote } from '../lib/chords'
 import { parseChord } from '../lib/transpose'
+import { Icon } from './Icons'
 
 function PianoDiagram({ notes, chord }) {
   const W = 14
@@ -43,9 +45,8 @@ function PianoDiagram({ notes, chord }) {
   )
 }
 
-function GuitarDiagram({ chord, notes }) {
-  const v = guitarVoicing(chord)
-  if (!v) {
+function GuitarDiagram({ voicing, chord, notes }) {
+  if (!voicing) {
     return (
       <div className="chord-fallback">
         <span className="chord-fallback-title">{chord}</span>
@@ -57,7 +58,7 @@ function GuitarDiagram({ chord, notes }) {
       </div>
     )
   }
-  const frets = v.frets
+  const frets = voicing.frets
   const positives = frets.filter((f) => f !== -1)
   const hasOpen = positives.some((f) => f === 0)
   const minPos = positives.length ? Math.min(...positives) : 1
@@ -72,13 +73,16 @@ function GuitarDiagram({ chord, notes }) {
   const H = topPad + cells * sh + 14
   const x0 = 20
 
-  const barreFret = base === v.r && v.r > 0 ? v.r : null
+  const barreFret = base === voicing.r && voicing.r > 0 ? voicing.r : null
   const barreCells = frets.filter((f) => f === barreFret).length
   const drawBarre = barreFret !== null && barreCells >= 3
 
   const xOf = (si) => x0 + si * sw
   const yOfFretLine = (li) => topPad + li * sh
   const dotY = (cell) => topPad + cell * sh + sh / 2
+  const formLabel = voicing.form ? `forma ${voicing.form}` : ''
+  const pressed = positives.filter((f) => f > 0)
+  const high = pressed.length ? Math.min(...pressed) >= 7 : false
 
   return (
     <svg viewBox={`0 0 ${W} ${H}`} width="168" role="img" aria-label={`Diagrama de ${chord}`}>
@@ -113,6 +117,8 @@ function GuitarDiagram({ chord, notes }) {
       })}
       <text x={0} y={H - 2} fontSize={8} fill="var(--muted)">
         {(notes || []).map((n) => spellNote(n, false)).join(' · ')}
+        {formLabel ? ` · ${formLabel}` : ''}
+        {high ? ' · pestana alta' : ''}
       </text>
     </svg>
   )
@@ -120,6 +126,13 @@ function GuitarDiagram({ chord, notes }) {
 
 export default function ChordDiagram({ chord, instrument }) {
   const parsed = parseChord(chord)
+  const [idx, setIdx] = useState(0)
+  const displayName = String(chord || '').split('/')[0]
+  const notes = useMemo(() => chordNotes(displayName) || [], [displayName])
+  const voicings = useMemo(() => guitarVoicings(displayName), [displayName])
+  useEffect(() => { setIdx(0) }, [displayName])
+  const voicing = voicings[Math.min(idx, Math.max(0, voicings.length - 1))] || null
+
   if (!parsed) {
     return (
       <div className="chord-fallback">
@@ -127,8 +140,6 @@ export default function ChordDiagram({ chord, instrument }) {
       </div>
     )
   }
-  const displayName = chord.split('/')[0]
-  const notes = chordNotes(displayName) || []
 
   return (
     <div className="diagram">
@@ -136,7 +147,30 @@ export default function ChordDiagram({ chord, instrument }) {
       {instrument === 'teclado' ? (
         <PianoDiagram notes={notes} chord={chord} />
       ) : (
-        <GuitarDiagram chord={displayName} notes={notes} />
+        <GuitarDiagram voicing={voicing} chord={displayName} notes={notes} />
+      )}
+      {instrument !== 'teclado' && voicings.length > 1 && (
+        <div className="voicing-nav">
+          <button
+            type="button"
+            className="icon-btn sm"
+            disabled={idx <= 0}
+            onClick={() => setIdx((n) => Math.max(0, n - 1))}
+            aria-label="Formação anterior"
+          >
+            <Icon name="prev" size={14} />
+          </button>
+          <span className="muted small">{idx + 1}/{voicings.length}</span>
+          <button
+            type="button"
+            className="icon-btn sm"
+            disabled={idx >= voicings.length - 1}
+            onClick={() => setIdx((n) => Math.min(voicings.length - 1, n + 1))}
+            aria-label="Próxima formação"
+          >
+            <Icon name="next" size={14} />
+          </button>
+        </div>
       )}
       {instrument === 'teclado' && notes.length > 0 && (
         <div className="diagram-notes">

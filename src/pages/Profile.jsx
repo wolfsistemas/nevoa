@@ -48,6 +48,13 @@ export default function Profile() {
         </button>
         <div className="stack auth-theme">
           <ThemeCard />
+          <div className="list-card" role="button" onClick={() => nav('/chords')}>
+            <span className="list-card-body">
+              <strong>Dicionário de acordes</strong>
+              <span className="muted small">Formações de violão, guitarra e teclado</span>
+            </span>
+            <Icon name="book" size={20} className="ghost-icon" />
+          </div>
         </div>
       </div>
     )
@@ -63,6 +70,13 @@ export default function Profile() {
 
       <div className="stack">
         <ThemeCard />
+        <div className="list-card" role="button" onClick={() => nav('/chords')}>
+          <span className="list-card-body">
+            <strong>Dicionário de acordes</strong>
+            <span className="muted small">Formações de violão, guitarra e teclado</span>
+          </span>
+          <Icon name="book" size={20} className="ghost-icon" />
+        </div>
         <div className="list-card" role="button" onClick={() => nav('/lists')}>
           <span className="list-card-body">
             <strong>Minhas listas</strong>

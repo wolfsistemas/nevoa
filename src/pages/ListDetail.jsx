@@ -159,6 +159,13 @@ export default function ListDetail() {
               <div className="song-card-body">
                 <strong className="song-card-title">{item.song.title}</strong>
                 <span className="song-card-artist">{item.song.artist}</span>
+                {(item.shift || item.capo) ? (
+                  <span className="muted small">
+                    {item.shift ? `Tom ${item.shift > 0 ? `+${item.shift}` : item.shift}` : ''}
+                    {item.shift && item.capo ? ' · ' : ''}
+                    {item.capo ? `Capo ${item.capo}` : ''}
+                  </span>
+                ) : null}
               </div>
             </button>
             <div className="col-actions">
@@ -184,10 +191,11 @@ export default function ListDetail() {
       {openSongId && (
         <div className="song-modal" role="dialog" aria-modal="true">
           <SongView
+            key={openSongId}
             songId={openSongId}
             listId={id}
             playlistIds={items.map((it) => it.song?.id).filter(Boolean)}
-            onBack={() => setOpenSongId(null)}
+            onBack={() => { setOpenSongId(null); load() }}
             onReplaceSong={setOpenSongId}
             embedded
           />

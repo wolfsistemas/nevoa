@@ -149,9 +149,14 @@ create table if not exists public.list_songs (
   list_id uuid not null references public.lists (id) on delete cascade,
   song_id uuid not null references public.songs (id) on delete cascade,
   position integer not null default 0,
+  shift integer not null default 0,
+  capo integer not null default 0,
   created_at timestamptz not null default now(),
   constraint list_songs_unique unique (list_id, song_id)
 );
+
+alter table public.list_songs add column if not exists shift integer not null default 0;
+alter table public.list_songs add column if not exists capo integer not null default 0;
 
 create index if not exists list_songs_list_idx on public.list_songs (list_id);
 
