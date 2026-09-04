@@ -7,9 +7,20 @@ export const supabase = createClient(url, anon, {
   auth: {
     persistSession: true,
     autoRefreshToken: true,
-    detectSessionInUrl: true
+    detectSessionInUrl: true,
+    flowType: 'pkce'
   }
 })
+
+export function authRedirectUrl() {
+  const url = new URL(window.location.href)
+  let path = url.pathname.replace(/index\.html$/, '')
+  if (!path.endsWith('/')) {
+    const i = path.lastIndexOf('/')
+    path = i >= 0 ? path.slice(0, i + 1) : '/'
+  }
+  return `${url.origin}${path || '/'}`
+}
 
 export const EDGE_FUNCTION_URL =
   import.meta.env.VITE_EDGE_FUNCTION_URL ||

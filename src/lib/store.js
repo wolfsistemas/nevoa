@@ -1,4 +1,4 @@
-import { supabase } from './supabase'
+import { authRedirectUrl, supabase } from './supabase'
 import { slugVariants } from './slug'
 import { sanitizeCifraLines } from './cifraSanitize'
 import { readCachedSong, writeCachedSong } from './songCache'
@@ -29,6 +29,50 @@ export async function signInWithLogin(identifier, password) {
   }
   const { error } = await supabase.auth.signInWithPassword({ email, password })
   if (error) throw new Error('Usuário ou senha inválidos.')
+}
+
+export async function signInWithGoogle() {
+  const { error } = await supabase.auth.signInWithOAuth({
+    provider: 'google',
+    options: {
+      redirectTo: authRedirectUrl(),
+      queryParams: { prompt: 'select_account' }
+    }
+  })
+  if (error) throw new Error(error.message || 'Não foi possível entrar com o Google.')
+}
+
+function usernameFromUser(user) {
+  const meta = user?.user_metadata || {}
+  const raw = String(meta.username || meta.preferred_username || meta.full_name || user?.email || 'user')
+  const local = raw.includes('@') ? raw.split('@')[0] : raw
+  let base = local.toLowerCase().replace(/[^a-z0-9._]/g, '').slice(0, 18)
+  if (base.length < 2) base = 'user'
+  return base
+}
+
+export async function ensureProfile(user) {
+  if (!user?.id) return null
+  const { data: existing } = await supabase.from('profiles').select('*').eq('id', user.id).maybeSingle()
+  if (existing) return existing
+  let username = usernameFromUser(user)
+  let n = 0
+  while (n < 30) {
+    const available = await checkUsername(username).catch(() => false)
+    if (available) break
+    n += 1
+    username = `${usernameFromUser(user)}${n}`
+  }
+  const { data, error } = await supabase
+    .from('profiles')
+    .insert({ id: user.id, email: user.email || '', username })
+    .select('*')
+    .maybeSingle()
+  if (error) {
+    const { data: again } = await supabase.from('profiles').select('*').eq('id', user.id).maybeSingle()
+    return again || null
+  }
+  return data
 }
 
 export async function signUpWithUsername(email, password, username) {

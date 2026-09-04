@@ -349,6 +349,29 @@ a:hover { text-decoration: underline; }
   display: flex; flex-direction: column; gap: 16px; align-items: stretch;
   max-width: 360px; width: 100%;
 }
+.google-btn {
+  width: 100%;
+  max-width: 340px;
+  align-self: center;
+  background: var(--bg-2);
+}
+.auth-or {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--muted);
+  font-size: 12px;
+  max-width: 340px;
+  width: 100%;
+  align-self: center;
+}
+.auth-or::before,
+.auth-or::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--line);
+}
 .page-head { display: flex; flex-direction: column; gap: 6px; }
 .page-head h1, .page-head h2 { margin: 0; }
 .avatar {

@@ -90,7 +90,7 @@ export default function Profile() {
           Sair da conta
         </button>
         <p className="muted small">
-          Sincronizado via Supabase. Em breve: login com Google e listas públicas.
+          Sincronizado via Supabase. Dá para entrar com Google ou e-mail.
         </p>
       </div>
     </div>

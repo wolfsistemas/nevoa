@@ -22,12 +22,32 @@ language plpgsql
 security definer
 set search_path = public
 as $$
+declare
+  v_username text;
+  v_base text;
+  v_n int := 0;
 begin
+  v_username := lower(trim(coalesce(new.raw_user_meta_data ->> 'username', '')));
+  v_username := regexp_replace(v_username, '[^a-z0-9._]', '', 'g');
+  if v_username is null or length(v_username) < 2 then
+    v_base := lower(split_part(coalesce(new.email, 'user'), '@', 1));
+    v_base := regexp_replace(v_base, '[^a-z0-9._]', '', 'g');
+    if length(v_base) < 2 then
+      v_base := 'user';
+    end if;
+    v_base := left(v_base, 18);
+    v_username := v_base;
+    while exists (select 1 from public.profiles where username = v_username) loop
+      v_n := v_n + 1;
+      v_username := left(v_base, 16) || v_n::text;
+    end loop;
+  end if;
+
   insert into public.profiles (id, email, username)
   values (
     new.id,
-    new.email,
-    lower(trim(new.raw_user_meta_data ->> 'username'))
+    coalesce(new.email, ''),
+    v_username
   )
   on conflict (id) do nothing;
   return new;
@@ -72,6 +92,10 @@ alter table public.profiles enable row level security;
 drop policy if exists profiles_select on public.profiles;
 create policy profiles_select on public.profiles
   for select using (auth.uid() = id);
+
+drop policy if exists profiles_insert on public.profiles;
+create policy profiles_insert on public.profiles
+  for insert with check (auth.uid() = id);
 
 -- ----------------------------------------------------------------------------
 -- SONGS: catálogo compartilhado de cifras (lido por todos, escrito via Edge
@@ -288,7 +312,7 @@ grant usage on schema public to anon, authenticated, service_role;
 grant select on public.songs to anon, authenticated;
 
 -- perfil: cada usuário lê apenas o próprio (a linha é criada pelo trigger)
-grant select on public.profiles to authenticated;
+grant select, insert on public.profiles to authenticated;
 
 -- listas e músicas das listas: só do próprio usuário (políticas por auth.uid())
 grant select, insert, update, delete on public.lists to authenticated;

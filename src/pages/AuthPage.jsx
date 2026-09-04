@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
-import { signInWithLogin, signUpWithUsername } from '../lib/store'
+import { Icon } from '../components/Icons'
+import { signInWithGoogle, signInWithLogin, signUpWithUsername } from '../lib/store'
 
 export default function AuthPage() {
   const nav = useNavigate()
@@ -19,6 +20,12 @@ export default function AuthPage() {
   useEffect(() => {
     if (user) nav('/', { replace: true })
   }, [user, nav])
+
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search)
+    const oauthErr = q.get('error_description') || q.get('error')
+    if (oauthErr) setError(oauthErr)
+  }, [])
 
   const submit = async (e) => {
     e.preventDefault()
@@ -66,6 +73,27 @@ export default function AuthPage() {
           </button>
         </div>
 
+        <button
+          type="button"
+          className="btn google-btn"
+          disabled={busy}
+          onClick={async () => {
+            setError('')
+            setBusy(true)
+            try {
+              await signInWithGoogle()
+            } catch (err) {
+              setError(err?.message || 'Não foi possível entrar com o Google.')
+              setBusy(false)
+            }
+          }}
+        >
+          <Icon name="google" size={18} />
+          Continuar com Google
+        </button>
+
+        <div className="auth-or"><span>ou</span></div>
+
         <form className="form" onSubmit={submit}>
           {mode === 'signup' && (
             <input
@@ -98,7 +126,7 @@ export default function AuthPage() {
           </button>
         </form>
 
-        <p className="muted small center">Email e senha por enquanto. Login com Google vem depois.</p>
+        <p className="muted small center">Google ou e-mail e senha. Listas e favoritos ficam na sua conta.</p>
       </div>
     </div>
   )
