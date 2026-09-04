@@ -1,0 +1,272 @@
+import { supabase } from './supabase'
+import { slugVariants } from './slug'
+import { sanitizeCifraLines } from './cifraSanitize'
+
+export async function getProfile() {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return null
+  const { data, error } = await supabase.from('profiles').select('*').eq('id', user.id).maybeSingle()
+  if (error) throw error
+  return data
+}
+
+export async function checkUsername(username) {
+  const { data, error } = await supabase.rpc('username_available', { p_username: username })
+  if (error) throw error
+  return data
+}
+
+// login aceita email ou username
+export async function signInWithLogin(identifier, password) {
+  let email = identifier
+  if (!identifier.includes('@')) {
+    const { data, error } = await supabase.rpc('get_email_for_username', { p_username: identifier })
+    if (error) throw error
+    if (!data) throw new Error('Usuário ou senha inválidos.')
+    email = data
+  }
+  const { error } = await supabase.auth.signInWithPassword({ email, password })
+  if (error) throw new Error('Usuário ou senha inválidos.')
+}
+
+export async function signUpWithUsername(email, password, username) {
+  const ok = await checkUsername(username)
+  if (!ok) throw new Error('Este nome de usuário já está em uso.')
+  const { data, error } = await supabase.auth.signUp({
+    email,
+    password,
+    options: { data: { username } }
+  })
+  if (error) {
+    if (/username|duplicate/i.test(error.message)) {
+      throw new Error('Este nome de usuário já está em uso.')
+    }
+    throw new Error(error.message)
+  }
+  return data
+}
+
+// ------------------------- Catálogo de cifras -------------------------
+
+export async function searchSongsLocal(q, limit = 30) {
+  q = String(q || '').trim()
+  if (!q) return []
+  const esc = q.replace(/[\\%_]/g, (c) => `\\${c}`)
+  const { data, error } = await supabase
+    .from('songs')
+    .select('id, artist, title, slug_artist, slug_title, youtube_url, image_url, tone_root')
+    .eq('version', 'original')
+    .or(`artist.ilike.%${esc}%,title.ilike.%${esc}%`)
+    .order('created_at', { ascending: false })
+    .limit(limit)
+  if (error) throw error
+  return data || []
+}
+
+export async function getSongById(id) {
+  if (!id) return null
+  const { data, error } = await supabase.from('songs').select('*').eq('id', id).maybeSingle()
+  if (error) throw error
+  return data
+}
+
+export async function getSongBySlug(slugArtist, slugTitle, version = 'original') {
+  const titles = slugVariants(slugTitle)
+  const artists = slugVariants(slugArtist)
+  let lastError = null
+  for (const a of artists) {
+    for (const t of titles) {
+      const { data, error } = await supabase
+        .from('songs')
+        .select('*')
+        .eq('slug_artist', a)
+        .eq('slug_title', t)
+        .eq('version', version)
+        .order('created_at', { ascending: true })
+        .limit(1)
+        .maybeSingle()
+      if (error) lastError = error
+      if (data) return data
+    }
+  }
+  if (lastError) throw lastError
+  return null
+}
+
+const recentsKey = (userId) => `nevoa_recents_${userId || 'anon'}`
+
+function readRecentIds(userId) {
+  try {
+    const raw = JSON.parse(localStorage.getItem(recentsKey(userId)) || '[]')
+    return Array.isArray(raw) ? raw.filter((id) => typeof id === 'string') : []
+  } catch {
+    return []
+  }
+}
+
+export function recordRecentSong(song, userId) {
+  if (!song?.id || !userId) return
+  const ids = readRecentIds(userId).filter((id) => id !== song.id)
+  ids.unshift(song.id)
+  try {
+    localStorage.setItem(recentsKey(userId), JSON.stringify(ids.slice(0, 24)))
+  } catch {}
+}
+
+export async function listRecentSongs(userId, limit = 12) {
+  if (!userId) return []
+  const ids = readRecentIds(userId).slice(0, limit)
+  if (!ids.length) return []
+  const { data, error } = await supabase
+    .from('songs')
+    .select('id, artist, title, slug_artist, slug_title, youtube_url, image_url, tone_root, version')
+    .in('id', ids)
+  if (error) throw error
+  const byId = new Map((data || []).map((s) => [s.id, s]))
+  return ids.map((id) => byId.get(id)).filter(Boolean)
+}
+
+export function parseSongContent(song) {
+  let lines = song?.content
+  if (typeof lines === 'string') {
+    try {
+      lines = JSON.parse(lines)
+    } catch {
+      lines = []
+    }
+  }
+  return sanitizeCifraLines(Array.isArray(lines) ? lines : [])
+}
+
+// ------------------------- Listas -------------------------
+
+export async function getLists() {
+  const { data, error } = await supabase
+    .from('lists')
+    .select('*, list_songs(count)')
+    .order('created_at', { ascending: false })
+  if (error) throw error
+  return (data || []).map((l) => ({ ...l, count: l.list_songs?.[0]?.count ?? 0 }))
+}
+
+export async function createList(name) {
+  const { data, error } = await supabase.from('lists').insert({ name }).select('*').single()
+  if (error) throw error
+  return data
+}
+
+export async function renameList(id, name) {
+  const { error } = await supabase.from('lists').update({ name, updated_at: new Date().toISOString() }).eq('id', id)
+  if (error) throw error
+}
+
+export async function deleteList(id) {
+  const { error } = await supabase.from('lists').delete().eq('id', id)
+  if (error) throw error
+}
+
+export async function getListWithSongs(id) {
+  const { data: list, error: e1 } = await supabase
+    .from('lists')
+    .select('*')
+    .eq('id', id)
+    .maybeSingle()
+  if (e1) throw e1
+  if (!list) return null
+  const { data: items, error: e2 } = await supabase
+    .from('list_songs')
+    .select(
+      'id, position, songs(id, artist, title, slug_artist, slug_title, youtube_url, image_url, tone_root)'
+    )
+    .eq('list_id', id)
+    .order('position', { ascending: true })
+  if (e2) throw e2
+  return { ...list, items: (items || []).map((it) => ({ ...it, song: it.songs })) }
+}
+
+export async function addSongToList(listId, songId) {
+  const { data: last } = await supabase
+    .from('list_songs')
+    .select('position')
+    .eq('list_id', listId)
+    .order('position', { ascending: false })
+    .limit(1)
+  const position = (last?.[0]?.position ?? -1) + 1
+  const { error } = await supabase
+    .from('list_songs')
+    .insert({ list_id: listId, song_id: songId, position })
+  if (error) {
+    if (error.code === '23505') return
+    throw error
+  }
+}
+
+export async function removeSongFromList(listSongId) {
+  const { error } = await supabase.from('list_songs').delete().eq('id', listSongId)
+  if (error) throw error
+}
+
+export async function moveListSong(listSongId, dir) {
+  // reordenação simples: sobe/desce trocando posições
+  const { data: cur } = await supabase
+    .from('list_songs')
+    .select('id, list_id, position')
+    .eq('id', listSongId)
+    .single()
+  if (!cur) return
+  const { data: other } = await supabase
+    .from('list_songs')
+    .select('id, position')
+    .eq('list_id', cur.list_id)
+    .eq('position', cur.position + dir)
+    .maybeSingle()
+  if (!other) return
+  const { error } = await supabase.rpc('swap_list_positions', {
+    p_a: cur.id,
+    p_b: other.id
+  })
+  if (error) throw error
+}
+
+// ------------------------- Favoritos -------------------------
+
+export async function getFavorites() {
+  const { data, error } = await supabase
+    .from('favorites')
+    .select('created_at, songs(id, artist, title, slug_artist, slug_title, youtube_url, image_url, tone_root)')
+    .order('created_at', { ascending: false })
+  if (error) throw error
+  return (data || []).map((f) => ({ created_at: f.created_at, song: f.songs }))
+}
+
+export async function toggleFavorite(songId) {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Faça login para favoritar.')
+  const { data: existing } = await supabase
+    .from('favorites')
+    .select('song_id')
+    .eq('user_id', user.id)
+    .eq('song_id', songId)
+    .maybeSingle()
+  if (existing) {
+    const { error } = await supabase.from('favorites').delete().eq('user_id', user.id).eq('song_id', songId)
+    if (error) throw error
+    return false
+  }
+  const { error } = await supabase.from('favorites').insert({ user_id: user.id, song_id: songId })
+  if (error) throw error
+  return true
+}
+
+export async function isFavorite(songId) {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return false
+  const { data, error } = await supabase
+    .from('favorites')
+    .select('song_id')
+    .eq('user_id', user.id)
+    .eq('song_id', songId)
+    .maybeSingle()
+  if (error) return false
+  return !!data
+}

@@ -1,0 +1,24 @@
+{
+  "name": "Névoa Cifras",
+  "short_name": "Névoa Cifras",
+  "start_url": "./",
+  "display": "standalone",
+  "theme_color": "#0f172a",
+  "background_color": "#f1f5f9",
+  "icons": [
+    {
+      "src": "./logo.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}
+
+

@@ -1,0 +1,7 @@
+# Configuração Supabase CLI (usada por: supabase functions deploy)
+# O deploy da Edge Function também precisa do secret SERVICE_ROLE_KEY (veja o README).
+
+project_id = "luguppodlfqnnmnwooar"
+
+[functions.fetch-song]
+verify_jwt = true
